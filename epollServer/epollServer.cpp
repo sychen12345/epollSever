@@ -22,18 +22,18 @@ int epollServer::epollInit()
     auto pos = mListenSocketList.begin();
     for (; pos != mListenSocketList.end(); ++pos)
     {
-        connectionPtr pConn = mConnectPool->getConnection((*pos)->fd); // 取出对象
-        pConn->listening    = (*pos);                                  // 连接对象 和监听对象关联，方便通过连接对象找监听对象
-        (*pos)->connection  = pConn;                                   // 监听对象 和连接对象关联，方便通过监听对象找连接对象
+        connectionPtr pConn = mConnectPool->getConnection((*pos)->fd); // 从连接池取出连接指针
+        pConn->listening    = (*pos);                                  
+        (*pos)->connection  = pConn;                                   
 
         pConn->readHandler = std::bind(&epollServer::eventAccept, this, std::placeholders::_1);
         // 绑定连接回调函数
 
         if (epollOperEvent((*pos)->fd, EPOLL_CTL_ADD, EPOLLIN | EPOLLRDHUP, 0, pConn) == -1)
         {
-            exit(2); //有问题，直接退出，日志 已经写过了
+            exit(2);
         }
-    } // end for
+    } 
     return 1;
 }
 epollServer::epollServer() : mWorkerConnections(1024), mConnectPool(new connectPool()), mNetListener(new netListener())
@@ -54,7 +54,7 @@ int epollServer::epollAddEvent(int fd, int readevent, int writeevent, uint32_t o
 
     if (epoll_ctl(mEpollFd, eventtype, fd, &ev) == -1)
     {
-        cout << "CSocekt::epollAddEvent()中epoll_ctl失败." << endl;
+        cout << "epollAddEvent()中epoll_ctl失败." << endl;
 
         return -1;
     }
@@ -75,7 +75,7 @@ int epollServer::epollOperEvent(int fd, uint32_t eventtype, uint32_t flag, int b
         if (bcaction == 0) { ev.events |= flag; }
         else if (bcaction == 1)
         {
-            //去掉某个标记
+            // 去掉某个标记
             ev.events &= ~flag;
         }
         else
@@ -92,7 +92,7 @@ int epollServer::epollOperEvent(int fd, uint32_t eventtype, uint32_t flag, int b
     ev.data.ptr = (void *)pConn;
     if (epoll_ctl(mEpollFd, eventtype, fd, &ev) == -1)
     {
-        cout << "CSocekt::epollOperEvent()中epoll_ctl(%d,%ud,%ud,%d)失败." << fd << " " << eventtype << " flag = " << flag << "  bcaction = " << bcaction
+        cout << "epollOperEvent()中epoll_ctl(%d,%ud,%ud,%d)失败." << fd << " " << eventtype << " flag = " << flag << "  bcaction = " << bcaction
              << endl;
         return -1;
     }
@@ -158,21 +158,17 @@ void epollServer::eventAccept(connectionPtr pConn)
         newc = mConnectPool->getConnection(s);
 
         memcpy(&newc->sSockaddr, &mysockaddr, socklen);
-        // 拷贝客户端地址到连接对象【要转成字符串ip地址参考函数ngx_sock_ntop()】
 
         if (!useAccept4)
         {
-            //如果不是用accept4()取得的socket，那么就要设置为非阻塞【因为用accept4()的已经被accept4()设置为非阻塞了】
             if (!mNetListener->setNonBlocking(s)) // set 失败
             {
                 mConnectPool->closeConnection(newc);
-                return; //直接返回
+                return; 
             }
         }
 
         newc->listening = pConn->listening;
-        // 连接对象 和监听对象关联，方便通过连接对象找监听对象【关联到监听端口】
-        // 绑定两个事件的回调函数
 
         newc->readHandler  = std::bind(&eventCallBack::readRequestHandler, mEventCallBack, std::placeholders::_1);
         newc->writeHandler = std::bind(&eventCallBack::writeRequestHandler, mEventCallBack, std::placeholders::_1);
